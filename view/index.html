@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNC Toolpath Viewer</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Main Container -->
+    <div class="container mx-auto p-6">
+        <!-- Header Section -->
+        <div class="text-center mb-6">
+            <h1 class="text-4xl font-bold mb-3">CNC Toolpath Viewer</h1>
+            <p class="text-lg mb-6">Paste your G-code here to visualize the toolpath in 3D.</p>
+        </div>
+
+        <!-- G-code Input and Control Panel -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- G-code Text Area -->
+            <div class="col-span-1">
+                <textarea id="gcodeInput" class="p-4 border rounded-lg w-full h-64" placeholder="Paste your G-code here..."></textarea>
+                <button id="plotButton" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg w-full">Plot Toolpath</button>
+            </div>
+
+            <!-- Control Panel -->
+            <div class="col-span-1">
+                <div class="border p-4 rounded-lg">
+                    <h2 class="font-semibold mb-2">Digital Readout</h2>
+                    <div>X: 0.0000 | Y: 0.0000 | Z: 0.0000</div>
+                    <h2 class="font-semibold mt-4 mb-2">Machine Options</h2>
+                    <div class="flex items-center">
+                        <label class="mr-2">Plot Orientation:</label>
+                        <input type="checkbox" id="toggleOrientation" checked>
+                    </div>
+                    <div class="flex items-center mt-2">
+                        <label class="mr-2">Diameter Mode (Lathe):</label>
+                        <input type="checkbox" id="toggleDiameterMode">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Visualization -->
+            <div class="col-span-1">
+                <div id="toolpath-visualization" class="w-full h-96 bg-white shadow-lg mt-6"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Three.js scene
+        let scene = new THREE.Scene();
+        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        let renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('toolpath-visualization').appendChild(renderer.domElement);
+
+        // Add colored axes (X: red, Y: green, Z: blue)
+        let axesHelper = new THREE.AxesHelper(20);
+        scene.add(axesHelper);
+
+        // Function to parse G-code and extract relevant points
+        function parseGCode(gcodeText) {
+            const lines = gcodeText.split('\n');
+            const points = [];
+            let currentPosition = { x: 0, y: 0, z: 5 };
+
+            lines.forEach(line => {
+                const regexMove = /G01 X([0-9.-]+) Y([0-9.-]+) Z([0-9.-]+)/;
+                const regexRapid = /G00 X([0-9.-]+) Y([0-9.-]+) Z([0-9.-]+)/;
+                const regexCircle = /G03 X([0-9.-]+) Y([0-9.-]+) I([0-9.-]+) J([0-9.-]+) Z([0-9.-]+)/;
+
+                let match;
+                // Handle linear move (G01)
+                if (match = line.match(regexMove)) {
+                    points.push({ x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[3]) });
+                    currentPosition = { x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[3]) };
+                }
+                // Handle rapid move (G00)
+                else if (match = line.match(regexRapid)) {
+                    points.push({ x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[3]) });
+                    currentPosition = { x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[3]) };
+                }
+                // Handle circular move (G03)
+                else if (match = line.match(regexCircle)) {
+                    points.push({ x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[5]) });
+                    currentPosition = { x: parseFloat(match[1]), y: parseFloat(match[2]), z: parseFloat(match[5]) };
+                }
+            });
+
+            return points;
+        }
+
+        // Function to plot the toolpath in 3D
+        function plotToolpath(points) {
+            scene.clear();  // Clear any existing content
+
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+
+            points.forEach(point => {
+                vertices.push(point.x, point.y, point.z);
+            });
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const material = new THREE.LineBasicMaterial({ color: 0x0000ff });
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+
+            camera.position.z = 50;
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                line.rotation.x += 0.01;
+                line.rotation.y += 0.01;
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Plot toolpath on button click
+        document.getElementById('plotButton').addEventListener('click', function() {
+            const gcodeText = document.getElementById('gcodeInput').value;
+            const points = parseGCode(gcodeText);
+            plotToolpath(points);
+        });
+    </script>
+</body>
+</html>

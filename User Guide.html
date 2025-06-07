@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNC File Management - User Guide</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body>
+    <!-- Navbar Section -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-files"></i> CNC File Management
+            </a>
+            <div class="navbar-nav">
+                <span class="nav-link">Welcome, <?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></span>
+                <a class="nav-link" href="logout.php"><i class="bi bi-box-arrow-right"></i> Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Section -->
+    <div class="container mt-4">
+        <h1 class="text-center mb-4"><i class="bi bi-files"></i> CNC File Management System - User Guide</h1>
+        
+        <!-- Introduction Section -->
+        <section class="mb-4">
+            <h2><i class="bi bi-house-door"></i> Introduction</h2>
+            <p>Welcome to the <strong>CNC File Management System</strong>. This platform allows users to efficiently manage files related to CNC drawings, track revisions, and perform other essential operations such as uploading, downloading, and deleting files.</p>
+            <p>This guide will walk you through the various features and functionalities available in the system.</p>
+        </section>
+
+        <!-- System Features Section -->
+        <section class="mb-4">
+            <h2><i class="bi bi-check-circle"></i> System Features</h2>
+            <ul>
+                <li><i class="bi bi-folder"></i> <strong>File Browser</strong>: View and manage all files in the system, including details such as filenames, descriptions, and creation dates.</li>
+                <li><i class="bi bi-upload"></i> <strong>File Uploading</strong>: Users with appropriate permissions (Admin, Engineer, Programmer) can upload new files to the system.</li>
+                <li><i class="bi bi-trash"></i> <strong>File Management</strong>: Delete files (restricted to authorized users).</li>
+                <li><i class="bi bi-search"></i> <strong>Search and Filter</strong>: Search and filter files based on various criteria, such as filename, drawing number, and description.</li>
+                <li><i class="bi bi-clock-history"></i> <strong>Recent Files</strong>: Easily access recently uploaded files through the dashboard.</li>
+            </ul>
+        </section>
+
+        <!-- User Instructions Section -->
+        <section class="mb-4">
+            <h2><i class="bi bi-wrench"></i> How to Use the CNC File Management System</h2>
+
+            <h3><i class="bi bi-box-arrow-in-right"></i> Logging In</h3>
+            <ol>
+                <li>Navigate to the login page.</li>
+                <li>Enter your <strong>username</strong> and <strong>password</strong>.</li>
+                <li>Click <strong>Login</strong> to access the system.</li>
+                <li>After successful login, you’ll be directed to your <strong>Dashboard</strong>.</li>
+            </ol>
+
+            <h3><i class="bi bi-house-door"></i> Dashboard Overview</h3>
+            <ul>
+                <li><strong>Welcome Message</strong>: Displays a personalized greeting with your username.</li>
+                <li><strong>Navigation Menu</strong>: Use the sidebar to navigate between the Dashboard, File Browser, and File Upload sections.</li>
+                <li><strong>Recent Files</strong>: View the latest files you have uploaded or worked with.</li>
+            </ul>
+
+            <h3><i class="bi bi-folder"></i> File Browser - Manage Files</h3>
+            <p>The <strong>File Browser</strong> allows you to view and manage files within the system.</p>
+            
+            <h4><i class="bi bi-folder-check"></i> Accessing the File Browser</h4>
+            <ol>
+                <li>In the <strong>Sidebar</strong>, click <strong>File Browser</strong> to access the file management page.</li>
+                <li>You’ll see a list of files grouped by their drawing numbers.</li>
+            </ol>
+
+            <h4><i class="bi bi-search"></i> Search and Filter</h4>
+            <p>You can search for files by <strong>filename</strong>, <strong>drawing number</strong>, or <strong>description</strong>:</p>
+            <ul>
+                <li>In the <strong>Search Bar</strong>, type keywords to find specific files.</li>
+                <li>Use the <strong>Filter</strong> button to narrow down files by date, uploader, or drawing number.</li>
+            </ul>
+
+            <h4><i class="bi bi-cloud-arrow-down"></i> Downloading Files</h4>
+            <ol>
+                <li>In the <strong>Actions</strong> column, click the <strong>Download</strong> button next to the desired file.</li>
+                <li>The file will be downloaded to your local machine.</li>
+            </ol>
+
+            <h4><i class="bi bi-trash"></i> Deleting a File</h4>
+            <ol>
+                <li>In the <strong>Actions</strong> column, click the <strong>Delete</strong> button next to the file.</li>
+                <li>A confirmation dialog will appear to confirm that you want to delete the file.</li>
+                <li>Click <strong>Yes</strong> to permanently delete the file.</li>
+            </ol>
+            <p><strong>Note:</strong> Deleting files is restricted to Admins, Engineers, and Programmers.</p>
+
+            <h3><i class="bi bi-cloud-upload"></i> Uploading Files</h3>
+            <p>The <strong>Upload File</strong> section allows users with the appropriate role (Admin, Engineer, Programmer) to upload new files.</p>
+            <h4><i class="bi bi-upload"></i> Steps to Upload Files</h4>
+            <ol>
+                <li>In the <strong>Sidebar</strong>, click <strong>Upload File</strong>.</li>
+                <li>Fill in the required fields:
+                    <ul>
+                        <li><strong>Select File</strong>: Choose the file you want to upload.</li>
+                        <li><strong>Description</strong>: Provide a brief description of the file.</li>
+                        <li><strong>Revision Number</strong>: Enter the revision number for the file.</li>
+                    </ul>
+                </li>
+                <li>Click <strong>Submit</strong> to upload the file.</li>
+                <li>You’ll receive a confirmation message if the upload is successful.</li>
+            </ol>
+            <p><strong>Note:</strong> File uploads are restricted to Admins, Engineers, and Programmers.</p>
+
+            <h3><i class="bi bi-person-badge"></i> User Roles and Permissions</h3>
+            <ul>
+                <li><strong>Admin</strong>: Full access to all files, including uploading, editing, deleting, and managing users. Can manage file metadata and revisions.</li>
+                <li><strong>Engineer</strong>: Access to view, edit, and upload files. Can delete files and upload new versions of files.</li>
+                <li><strong>Programmer</strong>: Similar to Engineer, with the ability to upload, edit, and manage files. Can delete files.</li>
+                <li><strong>User</strong>: Can only view and download files. Cannot upload, edit, or delete files.</li>
+            </ul>
+        </section>
+
+        <!-- Contact Support Section -->
+        <section class="mb-4">
+            <h2><i class="bi bi-telephone"></i> Contact Support</h2>
+            <p>If you encounter any issues or need further assistance, please contact <strong>support@cncfilemanagement.com</strong>.</p>
+        </section>
+
+        <!-- Conclusion Section -->
+        <section>
+            <h2><i class="bi bi-flag"></i> Conclusion</h2>
+            <p>The CNC File Management System provides an easy-to-use interface for managing files, tracking revisions, and facilitating collaboration among users with different roles. Whether you're uploading files or simply browsing, this system streamlines your CNC file management process.</p>
+        </section>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="bg-dark text-white text-center p-3 mt-5">
+        <p>&copy; 2023 CNC File Management. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
