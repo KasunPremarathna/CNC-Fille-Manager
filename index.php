@@ -1,27 +1,34 @@
 <?php
 session_start();
 include 'db.php';
+include 'log_activity.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    $sql = "SELECT * FROM users WHERE username = '$username'";
-    $result = $conn->query($sql);
+    $stmt = $conn->prepare("SELECT id, password, role FROM users WHERE username = ?");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
     if ($result->num_rows > 0) {
         $user = $result->fetch_assoc();
         if (password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['role'] = $user['role'];
+            logActivity($user['id'], 'login', 'User logged in successfully');
             header("Location: dashboard.php");
             exit();
         } else {
+            logActivity($user['id'], 'login_failed', 'Failed login attempt: incorrect password');
             $error = "Invalid username or password.";
         }
     } else {
+        logActivity(0, 'login_failed', 'Failed login attempt: username not found - ' . $username);
         $error = "Invalid username or password.";
     }
+    $stmt->close();
 }
 ?>
 
@@ -34,18 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
-       body {
-    background: url('/images/im1.webp') no-repeat center center fixed;
-    background-size: cover;
-    font-family: 'Arial', sans-serif;
-    color: white;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-}
-
+        body {
+            background: url('/images/im1.webp') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+        }
 
         .login-card {
             background-color: rgba(255, 255, 255, 0.9);
