@@ -2,7 +2,6 @@
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1); // Remove in production
-require_once 'auth.php';
 require_once 'db.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -45,6 +44,9 @@ $result = $stmt->get_result();
 <body>
     <div class="container">
         <h2 class="mb-4">Activity Logs</h2>
+        <?php if ($result->num_rows === 0): ?>
+            <div class="alert alert-info">No logs found.</div>
+        <?php endif; ?>
         <table class="table table-bordered">
             <thead>
                 <tr>
@@ -57,20 +59,16 @@ $result = $stmt->get_result();
                 </tr>
             </thead>
             <tbody>
-                <?php if ($result->num_rows > 0): ?>
-                    <?php while ($row = $result->fetch_assoc()): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($row['id']); ?></td>
-                            <td><?php echo htmlspecialchars($row['username'] ?? 'Unknown'); ?></td>
-                            <td><?php echo htmlspecialchars($row['user_id']); ?></td>
-                            <td><?php echo htmlspecialchars($row['action']); ?></td>
-                            <td><?php echo htmlspecialchars($row['details']); ?></td>
-                            <td><?php echo htmlspecialchars($row['timestamp']); ?></td>
-                        </tr>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <tr><td colspan="6" class="text-center">No logs found.</td></tr>
-                <?php endif; ?>
+                <?php while ($row = $result->fetch_assoc()): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['id']); ?></td>
+                        <td><?php echo htmlspecialchars($row['username'] ?? 'Unknown'); ?></td>
+                        <td><?php echo htmlspecialchars($row['user_id']); ?></td>
+                        <td><?php echo htmlspecialchars($row['action']); ?></td>
+                        <td><?php echo htmlspecialchars($row['details']); ?></td>
+                        <td><?php echo htmlspecialchars($row['timestamp']); ?></td>
+                    </tr>
+                <?php endwhile; ?>
             </tbody>
         </table>
         <a href="dashboard.php" class="btn btn-primary">Back to Dashboard</a>
