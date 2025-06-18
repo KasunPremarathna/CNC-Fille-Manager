@@ -1,5 +1,7 @@
 <?php
 session_start();
+error_reporting(E_ALL);
+ini_set('display_errors', 1); // Remove in production
 require_once 'auth.php';
 require_once 'db.php';
 
@@ -8,13 +10,16 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Restrict to admin role, if applicable
-if ($_SESSION['role'] !== 'admin') {
-    header("Location: dashboard.php");
-    exit();
+// No role check to allow all users to view logs
+
+if (!$conn) {
+    die("Database connection failed: " . mysqli_connect_error());
 }
 
-$stmt = $conn->prepare("SELECT l.id, u.username, l.action, l.details, l.timestamp FROM logs l LEFT JOIN users u ON l.user_id = u.id ORDER BY l.timestamp DESC");
+$stmt = $conn->prepare("SELECT l.id, u.username, l.user_id, l.action, l.details, l.timestamp FROM logs l LEFT JOIN users u ON l.user_id = u.id ORDER BY l.timestamp DESC");
+if (!$stmt) {
+    die("Query preparation failed: " . $conn->error);
+}
 $stmt->execute();
 $result = $stmt->get_result();
 ?>
@@ -34,6 +39,7 @@ $result = $stmt->get_result();
         @media (max-width: 576px) {
             .table { font-size: 0.9rem; }
         }
+        .text-center { color: #333; }
     </style>
 </head>
 <body>
@@ -44,26 +50,32 @@ $result = $stmt->get_result();
                 <tr>
                     <th>ID</th>
                     <th>Username</th>
+                    <th>User ID</th>
                     <th>Action</th>
                     <th>Details</th>
                     <th>Timestamp</th>
                 </tr>
             </thead>
             <tbody>
-                <?php while ($row = $result->fetch_assoc()): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($row['id']); ?></td>
-                        <td><?php echo htmlspecialchars($row['username'] ?: 'Unknown'); ?></td>
-                        <td><?php echo htmlspecialchars($row['action']); ?></td>
-                        <td><?php echo htmlspecialchars($row['details']); ?></td>
-                        <td><?php echo htmlspecialchars($row['timestamp']); ?></td>
-                    </tr>
-                <?php endwhile; ?>
+                <?php if ($result->num_rows > 0): ?>
+                    <?php while ($row = $result->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($row['id']); ?></td>
+                            <td><?php echo htmlspecialchars($row['username'] ?? 'Unknown'); ?></td>
+                            <td><?php echo htmlspecialchars($row['user_id']); ?></td>
+                            <td><?php echo htmlspecialchars($row['action']); ?></td>
+                            <td><?php echo htmlspecialchars($row['details']); ?></td>
+                            <td><?php echo htmlspecialchars($row['timestamp']); ?></td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="6" class="text-center">No logs found.</td></tr>
+                <?php endif; ?>
             </tbody>
         </table>
         <a href="dashboard.php" class="btn btn-primary">Back to Dashboard</a>
     </div>
 </body>
 </html>
- 
+
 <?php $stmt->close(); ?>
