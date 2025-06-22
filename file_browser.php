@@ -255,6 +255,32 @@ function displayComments($fileId, $conn) {
                                                     </div>
                                                 </td>
                                             </tr>
+                                        <?php foreach ($files as $file): ?>
+                                            <tr>
+                                                <td>
+                                                    <i class="bi bi-file-earmark"></i> <?= htmlspecialchars($file['filename']) ?>
+                                                </td>
+                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['description']) ?></td>
+                                                <td class="d-none d-md-table-cell">
+                                                    <span class="badge bg-<?= $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info') ?>"><?= htmlspecialchars($file['username']) ?></span>
+                                                </td>
+                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['revision_number']) ?></td>
+                                                <td class="d-none d-md-table-cell"><?= date('Y-m-d H:i', strtotime($file['created_at'])) ?></td>
+                                                <td>
+                                                    <?php displayComments($file['id'], $conn); ?>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <button class="btn btn-success" onclick="showAddCommentForm(<?= $file['id'] ?>)">
+                                                            <i class="bi bi-plus"></i> Comment
+                                                        </button>
+                                                        <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
+                                                            <button class="btn btn-danger" onclick="confirmDelete(<?= $file['id'] ?>)" title="Delete"><i class="bi bi-trash"></i></button>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         <?php endforeach; ?>
                                     </tbody>
                                 </table>
@@ -263,22 +289,23 @@ function displayComments($fileId, $conn) {
                     </div>
                 <?php endforeach; ?>
 
-            <?php if (!$show_all && $total_pages > 1): ?>
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                            <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>">Previous</a>
-                        </li>
-                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                            <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                <?php if (!$show_all && $total_pages > 1): ?>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>">Previous</a>
                             </li>
-                        <?php endfor; ?>
-                        <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                            <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>">Next</a>
-                        </li>
-                    </ul>
-                </nav>
+                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                                </li>
+                            <?php endfor; ?>
+                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
