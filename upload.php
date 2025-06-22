@@ -1,7 +1,7 @@
 <?php
 session_start();
 include 'db.php';
-include 'log_activity.php'; // Added for logging
+include 'log_activity.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -10,22 +10,41 @@ if (!isset($_SESSION['user_id'])) {
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $uploaded_by = $_SESSION['user_id'];
+    $uploadDir = 'Uploads/';
+    
+    // Ensure Uploads directory exists
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
 
     // Handle file uploads
     foreach ($_FILES['files']['tmp_name'] as $key => $tmp_name) {
         $filename = $_FILES['files']['name'][$key];
-        $filepath = "Uploads/" . basename($filename);
+        // Sanitize filename to handle spaces and special characters
+        $sanitized_filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+        $filepath = $uploadDir . $sanitized_filename;
+
+        // Validate file
+        if ($_FILES['files']['error'][$key] !== UPLOAD_ERR_OK) {
+            $error = 'Upload error code: ' . $_FILES['files']['error'][$key];
+            logActivity($uploaded_by, 'upload_failed', 'Failed to upload file: ' . $filename . ' (' . $error . ')');
+            continue;
+        }
+        if ($_FILES['files']['size'][$key] == 0) {
+            logActivity($uploaded_by, 'upload_failed', 'Empty file: ' . $filename);
+            continue;
+        }
 
         // Attempt to move uploaded file
         if (move_uploaded_file($tmp_name, $filepath)) {
-            // Extract Drawing Number and Revision Number from the filename
+            // Extract Drawing Number and Revision Number
             preg_match('/^\d+/', $filename, $drawing_matches);
-            $drawing_number = $drawing_matches[0] ?? ''; // Drawing Number, default empty if not matched
+            $drawing_number = $drawing_matches[0] ?? '';
 
             preg_match('/_Rev\s+([^-]+)/', $filename, $revision_matches);
-            $revision_number = trim($revision_matches[1] ?? ''); // Revision Number, default empty if not matched
+            $revision_number = trim($revision_matches[1] ?? '');
 
-            // Insert file metadata into the files table
+            // Insert file metadata
             $description = $_POST['file_description'][$key] ?? '';
             $sql = "INSERT INTO files (drawing_number, revision_number, filename, filepath, description, uploaded_by) 
                     VALUES (?, ?, ?, ?, ?, ?)";
@@ -33,16 +52,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->bind_param("sssssi", $drawing_number, $revision_number, $filename, $filepath, $description, $uploaded_by);
             
             if ($stmt->execute()) {
-                // Log successful upload
                 logActivity($uploaded_by, 'upload', 'Uploaded file: ' . $filename);
             } else {
-                // Log failed database insert
                 logActivity($uploaded_by, 'upload_failed', 'Failed to save file to database: ' . $filename);
+                // Remove file if database insert fails
+                unlink($filepath);
             }
             $stmt->close();
         } else {
-            // Log failed file move
-            logActivity($uploaded_by, 'upload_failed', 'Failed to move file: ' . $filename);
+            $error = error_get_last()['message'] ?? 'Unknown error';
+            logActivity($uploaded_by, 'upload_failed', 'Failed to move file: ' . $filename . ' (' . $error . ')');
         }
     }
 
@@ -108,18 +127,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             fileUploadSection.appendChild(newFileUpload);
         }
 
-        // Handle the form submission to show progress bar
         document.getElementById('uploadForm').onsubmit = function(event) {
-            event.preventDefault(); // Prevent form from submitting the normal way
+            event.preventDefault();
             const formData = new FormData(this);
-
-            // Show the progress bar
             document.getElementById('progress-container').style.display = 'block';
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '', true);
 
-            // Update progress bar as the file uploads
             xhr.upload.onprogress = function(event) {
                 if (event.lengthComputable) {
                     const percent = (event.loaded / event.total) * 100;
@@ -128,7 +143,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             };
 
-            // When the upload is finished
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     window.location.href = 'dashboard.php';
@@ -138,6 +152,5 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             xhr.send(formData);
         };
     </script>
-</body> 
-
+</body>
 </html>
