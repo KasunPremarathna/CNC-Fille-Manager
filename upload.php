@@ -24,15 +24,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     // Define upload path
     $upload_dir = 'uploads/';
+    if (!is_dir($upload_dir)) {
+        mkdir($upload_dir, 0755, true);
+    }
     $filename = uniqid() . '_' . basename($file['name']);
     $filepath = $upload_dir . $filename;
 
     if (move_uploaded_file($file['tmp_name'], $filepath)) {
         // Insert file with pending status
-        $query = "INSERT INTO files (filename, drawing_number, description, uploaded_by, revision_number, status) 
-                  VALUES (?, ?, ?, ?, ?, 'pending')";
+        $query = "INSERT INTO files (filename, drawing_number, description, uploaded_by, revision_number, status, filepath) 
+                  VALUES (?, ?, ?, ?, ?, 'pending', ?)";
         $stmt = $conn->prepare($query);
-        $stmt->bind_param("sssds", $filename, $drawing_number, $description, $user_id, $revision_number);
+        $stmt->bind_param("sssiss", $filename, $drawing_number, $description, $user_id, $revision_number, $filepath);
         $stmt->execute();
         $file_id = $conn->insert_id;
         $stmt->close();
@@ -50,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->close();
         }
 
-        // Log activity (assumed log_activity.php exists)
+        // Log activity
         include 'log_activity.php';
         log_activity($user_id, "Uploaded file: $filename (Pending Approval)");
 

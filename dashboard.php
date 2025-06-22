@@ -91,7 +91,8 @@ if ($role == 'admin' || $role == 'engineer') {
                     <p>No pending approvals.</p>
                 <?php endif; ?>
             <?php endif; ?>
-            <!-- Additional dashboard content (e.g., file stats) -->
+            <p>Welcome to the CNC File Management System.</p>
+            <!-- Add more dashboard content as needed -->
         </div>
     </div>
 
