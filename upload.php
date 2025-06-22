@@ -138,5 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             xhr.send(formData);
         };
     </script>
-</body>
+</body> 
+
 </html>
