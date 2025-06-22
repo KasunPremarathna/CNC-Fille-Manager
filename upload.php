@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // Attempt to move uploaded file
         if (move_uploaded_file($tmp_name, $filepath)) {
-            // Extract Drawing Number and Revision Number
+            // Extract Drawing Number and Revision Number (optional)
             preg_match('/^\d+/', $filename, $drawing_matches);
             $drawing_number = $drawing_matches[0] ?? '';
 
@@ -55,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 logActivity($uploaded_by, 'upload', 'Uploaded file: ' . $filename);
             } else {
                 logActivity($uploaded_by, 'upload_failed', 'Failed to save file to database: ' . $filename);
-                // Remove file if database insert fails
                 unlink($filepath);
             }
             $stmt->close();
