@@ -3,20 +3,20 @@ session_start();
 include 'db.php';
 include 'log_activity.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
     header("Location: index.php");
     exit();
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $uploaded_by = $_SESSION['user_id'];
-    $uploadDir = 'Uploads/';
-    
-    // Ensure Uploads directory exists
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-    }
+$uploaded_by = $_SESSION['user_id'];
+$uploadDir = 'Uploads/';
 
+// Ensure Uploads directory exists
+if (!is_dir($uploadDir)) {
+    mkdir($uploadDir, 0755, true);
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Handle file uploads
     foreach ($_FILES['files']['tmp_name'] as $key => $tmp_name) {
         $filename = $_FILES['files']['name'][$key];
@@ -69,12 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             preg_match('/_Rev\s+([^-]+)/', $filename, $revision_matches);
             $revision_number = trim($revision_matches[1] ?? '');
 
+            // Sanitize description
+            $description = mysqli_real_escape_string($conn, $_POST['file_description'][$key] ?? '');
+
             // Insert file metadata with status
-            $description = $_POST['file_description'][$key] ?? '';
             $sql = "INSERT INTO files (drawing_number, revision_number, filename, filepath, description, uploaded_by, status) 
                     VALUES (?, ?, ?, ?, ?, ?, 'pending')";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("sssssis", $drawing_number, $revision_number, $filename, $filepath, $description, $uploaded_by, $status);
+            $stmt->bind_param("sssssi", $drawing_number, $revision_number, $filename, $filepath, $description, $uploaded_by);
             
             if ($stmt->execute()) {
                 $file_id = $conn->insert_id;
@@ -84,10 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $query = "SELECT id FROM users WHERE role IN ('engineer', 'admin')";
                 $result = $conn->query($query);
                 while ($row = $result->fetch_assoc()) {
-                    $notify_query = "INSERT INTO notifications (file_id, user_id, message) 
-                                     VALUES (?, ?, ?)";
+                    $notify_sql = "INSERT INTO notifications (file_id, user_id, message) VALUES (?, ?, ?)";
                     $message = "New file '$filename' pending approval.";
-                    $notify_stmt = $conn->prepare($notify_query);
+                    $notify_stmt = $conn->prepare($notify_sql);
                     $notify_stmt->bind_param("iis", $file_id, $row['id'], $message);
                     $notify_stmt->execute();
                     $notify_stmt->close();
@@ -115,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upload Files - CNC File Management</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
