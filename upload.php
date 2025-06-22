@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once 'db.php';
-require_once 'log_activity.php';
+require_once 'log_activity.php'; // Added for logging
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -21,14 +21,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
 
     // Validate file
     if (!in_array($fileExt, $allowedExtensions)) {
+        logActivity($userId, 'upload_failed', 'Invalid file type: ' . $fileName); // Logging failed upload
         header("Location: file_list.php?error=Invalid file type");
         exit();
     }
     if ($file['size'] > $maxFileSize) {
+        logActivity($userId, 'upload_failed', 'File too large: ' . $fileName); // Logging failed upload
         header("Location: file_list.php?error=File too large");
         exit();
     }
     if ($file['error'] !== UPLOAD_ERR_OK) {
+        logActivity($userId, 'upload_failed', 'Upload error: ' . $fileName); // Logging failed upload
         header("Location: file_list.php?error=Upload failed");
         exit();
     }
@@ -39,16 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['file'])) {
         $stmt = $conn->prepare("INSERT INTO files (user_id, file_name, file_path) VALUES (?, ?, ?)");
         $stmt->bind_param("iss", $userId, $fileName, $filePath);
         if ($stmt->execute()) {
-            // Log upload action
-            logActivity($userId, 'upload', 'Uploaded file: ' . $fileName);
+            logActivity($userId, 'upload', 'Uploaded file: ' . $fileName); // Logging successful upload
             header("Location: file_list.php?success=File uploaded successfully");
         } else {
-            logActivity($userId, 'upload_failed', 'Failed to save file to database: ' . $fileName);
+            logActivity($userId, 'upload_failed', 'Failed to save file to database: ' . $fileName); // Logging failed upload
             header("Location: file_list.php?error=Database error");
         }
         $stmt->close();
     } else {
-        logActivity($userId, 'upload_failed', 'Failed to move file: ' . $fileName);
+        logActivity($userId, 'upload_failed', 'Failed to move file: ' . $fileName); // Logging failed upload
         header("Location: file_list.php?error=Upload failed");
     }
     exit();
