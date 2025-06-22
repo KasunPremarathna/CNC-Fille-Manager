@@ -20,13 +20,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Handle file uploads
     foreach ($_FILES['files']['tmp_name'] as $key => $tmp_name) {
         $filename = $_FILES['files']['name'][$key];
-        // Sanitize filename to handle spaces and special characters
+        // Sanitize filename
         $sanitized_filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
         $filepath = $uploadDir . $sanitized_filename;
 
         // Validate file
         if ($_FILES['files']['error'][$key] !== UPLOAD_ERR_OK) {
-            $error = 'Upload error code: ' . $_FILES['files']['error'][$key];
+            $error_codes = [
+                UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize',
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE',
+                UPLOAD_ERR_PARTIAL => 'File only partially uploaded',
+                UPLOAD_ERR_NO_FILE => 'No file uploaded',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary directory',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write to disk',
+                UPLOAD_ERR_EXTENSION => 'File upload stopped by extension'
+            ];
+            $error = $error_codes[$_FILES['files']['error'][$key]] ?? 'Unknown error';
             logActivity($uploaded_by, 'upload_failed', 'Failed to upload file: ' . $filename . ' (' . $error . ')');
             continue;
         }
@@ -35,9 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             continue;
         }
 
+        // Check MIME type for .nc and .txt
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $tmp_name);
+        finfo_close($finfo);
+        $allowed_mimes = [
+            'text/plain' => ['txt', 'nc'],
+            'application/octet-stream' => ['nc'],
+            'application/pdf' => ['pdf'],
+            'application/step' => ['step'],
+            // Add more as needed
+        ];
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowed_mimes[$mime] ?? [])) {
+            logActivity($uploaded_by, 'upload_failed', 'Invalid MIME type for file: ' . $filename . ' (' . $mime . ')');
+            continue;
+        }
+
         // Attempt to move uploaded file
         if (move_uploaded_file($tmp_name, $filepath)) {
-            // Extract Drawing Number and Revision Number (optional)
+            // Extract Drawing Number and Revision Number
             preg_match('/^\d+/', $filename, $drawing_matches);
             $drawing_number = $drawing_matches[0] ?? '';
 
