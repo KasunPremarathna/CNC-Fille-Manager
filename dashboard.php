@@ -59,7 +59,7 @@ if ($result === false) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - File Browse</title>
+    <title>Dashboard - File Browser</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -142,7 +142,7 @@ if ($result === false) {
             <!-- Main Content -->
             <div class="col-md-9">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="bi bi-folder2-open"></i> File Browser</h2>
+                    <h2><i class="bi bi-folder2-open"></i> File Browsers</h2>
                     <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
                         <a href="upload.php" class="btn btn-primary">
                             <i class="bi bi-upload"></i> Upload File
