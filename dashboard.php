@@ -142,7 +142,7 @@ if ($result === false) {
             <!-- Main Content -->
             <div class="col-md-9">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="bi bi-folder2-open"></i> File Browsers</h2>
+                    <h2><i class="bi bi-folder2-open"></i> File Browser</h2>
                     <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
                         <a href="upload.php" class="btn btn-primary">
                             <i class="bi bi-upload"></i> Upload File
