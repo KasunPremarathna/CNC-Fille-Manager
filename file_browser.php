@@ -117,13 +117,13 @@ function displayComments($fileId, $conn) {
         }
         .table-responsive { width: 100%; }
         .btn-group-sm .btn { padding: 5px 10px; }
+        .status-pending { color: #ffc107; font-weight: bold; }
+        .status-approved { color: #28a745; font-weight: bold; }
         @media (max-width: 767px) {
             .content-wrapper { padding-left: 10px; padding-right: 10px; }
-            .table {
-                font-size: 14px;
-            }
-            .table th:not(:nth-child(1)):not(:nth-child(6)):not(:nth-child(7)),
-            .table td:not(:nth-child(1)):not(:nth-child(6)):not(:nth-child(7)) {
+            .table { font-size: 14px; }
+            .table th:not(:nth-child(1)):not(:nth-child(6)):not(:nth-child(7)):not(:nth-child(8)),
+            .table td:not(:nth-child(1)):not(:nth-child(6)):not(:nth-child(7)):not(:nth-child(8)) {
                 display: none;
             }
             .btn-group-sm .btn {
@@ -144,7 +144,7 @@ function displayComments($fileId, $conn) {
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="dashboard.php">CNC File Management</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -225,6 +225,7 @@ function displayComments($fileId, $conn) {
                                             <th class="d-none d-md-table-cell">Revision</th>
                                             <th class="d-none d-md-table-cell">Uploaded On</th>
                                             <th>Comments</th>
+                                            <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -244,13 +245,25 @@ function displayComments($fileId, $conn) {
                                                     <?php displayComments($file['id'], $conn); ?>
                                                 </td>
                                                 <td>
+                                                    <span class="status-<?= $file['status'] ?>">
+                                                        <?= ucfirst($file['status']) ?>
+                                                    </span>
+                                                </td>
+                                                <td>
                                                     <div class="btn-group btn-group-sm">
-                                                        <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <?php if ($file['status'] == 'approved' || in_array($role, ['admin', 'engineer', 'programmer'])): ?>
+                                                            <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <?php endif; ?>
                                                         <button class="btn btn-success" onclick="showAddCommentForm(<?= $file['id'] ?>)">
                                                             <i class="bi bi-plus"></i> Comment
                                                         </button>
                                                         <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
                                                             <button class="btn btn-danger" onclick="confirmDelete(<?= $file['id'] ?>)" title="Delete"><i class="bi bi-trash"></i></button>
+                                                        <?php endif; ?>
+                                                        <?php if ($role == 'admin' || $role == 'engineer'): ?>
+                                                            <?php if ($file['status'] == 'pending'): ?>
+                                                                <a href="approve_file.php?id=<?= $file['id'] ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
+                                                            <?php endif; ?>
                                                         <?php endif; ?>
                                                     </div>
                                                 </td>
@@ -358,5 +371,4 @@ function displayComments($fileId, $conn) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-
 <?php $conn->close(); ?>
