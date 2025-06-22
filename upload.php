@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'db.php';
+include 'log_activity.php'; // Added for logging
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -13,21 +14,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Handle file uploads
     foreach ($_FILES['files']['tmp_name'] as $key => $tmp_name) {
         $filename = $_FILES['files']['name'][$key];
-        $filepath = "uploads/" . basename($filename);
-        move_uploaded_file($tmp_name, $filepath);
+        $filepath = "Uploads/" . basename($filename);
 
-        // Extract Drawing Number and Revision Number from the filename
-        preg_match('/^\d+/', $filename, $drawing_matches);
-        $drawing_number = $drawing_matches[0]; // Drawing Number
+        // Attempt to move uploaded file
+        if (move_uploaded_file($tmp_name, $filepath)) {
+            // Extract Drawing Number and Revision Number from the filename
+            preg_match('/^\d+/', $filename, $drawing_matches);
+            $drawing_number = $drawing_matches[0] ?? ''; // Drawing Number, default empty if not matched
 
-        preg_match('/_Rev\s+([^-]+)/', $filename, $revision_matches);
-        $revision_number = trim($revision_matches[1]); // Revision Number
+            preg_match('/_Rev\s+([^-]+)/', $filename, $revision_matches);
+            $revision_number = trim($revision_matches[1] ?? ''); // Revision Number, default empty if not matched
 
-        // Insert file metadata into the files table
-        $description = $_POST['file_description'][$key];
-        $sql = "INSERT INTO files (drawing_number, revision_number, filename, filepath, description, uploaded_by) 
-                VALUES ('$drawing_number', '$revision_number', '$filename', '$filepath', '$description', '$uploaded_by')";
-        $conn->query($sql);
+            // Insert file metadata into the files table
+            $description = $_POST['file_description'][$key] ?? '';
+            $sql = "INSERT INTO files (drawing_number, revision_number, filename, filepath, description, uploaded_by) 
+                    VALUES (?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sssssi", $drawing_number, $revision_number, $filename, $filepath, $description, $uploaded_by);
+            
+            if ($stmt->execute()) {
+                // Log successful upload
+                logActivity($uploaded_by, 'upload', 'Uploaded file: ' . $filename);
+            } else {
+                // Log failed database insert
+                logActivity($uploaded_by, 'upload_failed', 'Failed to save file to database: ' . $filename);
+            }
+            $stmt->close();
+        } else {
+            // Log failed file move
+            logActivity($uploaded_by, 'upload_failed', 'Failed to move file: ' . $filename);
+        }
     }
 
     header("Location: dashboard.php");
