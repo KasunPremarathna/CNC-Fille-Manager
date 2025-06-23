@@ -17,21 +17,38 @@ if (isset($_GET['id'])) {
     $query = "UPDATE files SET status = 'approved' WHERE id = ?";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $file_id);
-    $stmt->execute();
+    $success = $stmt->execute();
     $stmt->close();
 
-    // Log approval
-    log_activity($user_id, "Approved file ID: $file_id");
+    if ($success) {
+        // Log approval
+        logActivity($user_id, 'approve', "Approved file ID: $file_id");
 
-    // Mark notifications as read
-    $query = "UPDATE notifications SET is_read = 1 WHERE file_id = ?";
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $file_id);
-    $stmt->execute();
-    $stmt->close();
+        // Mark notifications as read
+        $query = "UPDATE notifications SET is_read = 1 WHERE file_id = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("i", $file_id);
+        $stmt->execute();
+        $stmt->close();
 
-    header("Location: file_browser.php");
-    exit();
+        // Output SweetAlert2 script
+        echo "<script src='https://cdn.jsdelivr.net/npm/sweetalert2@11'></script>";
+        echo "<script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Done',
+                        text: 'File approved successfully!',
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        window.location.href = 'file_browser.php';
+                    });
+                });
+              </script>";
+    } else {
+        echo "Failed to approve file.";
+    }
 } else {
     echo "Invalid file ID.";
 }

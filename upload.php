@@ -82,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $file_id = $conn->insert_id;
                 logActivity($uploaded_by, 'upload', 'Uploaded file: ' . $filename . ' (Pending Approval)');
 
-                // Create notifications for engineers and admins
-                $query = "SELECT id FROM users WHERE role IN ('engineer', 'admin')";
+                // Create notifications for admins and engineers
+                $query = "SELECT id FROM users WHERE role IN ('admin', 'engineer')";
                 $result = $conn->query($query);
                 while ($row = $result->fetch_assoc()) {
                     $notify_sql = "INSERT INTO notifications (file_id, user_id, message) VALUES (?, ?, ?)";
