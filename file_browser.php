@@ -27,30 +27,34 @@ $show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $search_param = "%$search%";
 
-// Base query with prepared statements
+// Base queries
 $sql = "SELECT files.*, users.username, users.role FROM files JOIN users ON files.uploaded_by = users.id";
 $count_sql = "SELECT COUNT(*) AS total FROM files JOIN users ON files.uploaded_by = users.id";
-$params = [];
-$types = '';
 
+// Parameters and types for search
+$search_params = [];
+$search_types = '';
 if (!empty($search)) {
     $sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
     $count_sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
-    $params = [$search_param, $search_param, $search_param];
-    $types = 'sss';
+    $search_params = [$search_param, $search_param, $search_param];
+    $search_types = 'sss';
 }
 
+// Add pagination to main query
+$main_params = $search_params;
+$main_types = $search_types;
 if (!$show_all) {
     $sql .= " ORDER BY files.created_at DESC LIMIT ? OFFSET ?";
-    $params[] = $limit;
-    $params[] = $offset;
-    $types .= 'ii';
+    $main_params[] = $limit;
+    $main_params[] = $offset;
+    $main_types .= 'ii';
 }
 
 // Count total records
 $stmt = $conn->prepare($count_sql);
-if ($types) {
-    $stmt->bind_param($types, ...array_slice($params, 0, count($params) - ($show_all ? 0 : 2)));
+if ($search_types) {
+    $stmt->bind_param($search_types, ...$search_params);
 }
 $stmt->execute();
 $count_result = $stmt->get_result();
@@ -69,8 +73,8 @@ $total_pages = $show_all ? 1 : ceil($total_records / $limit);
 
 // Get files
 $stmt = $conn->prepare($sql);
-if ($types) {
-    $stmt->bind_param($types, ...$params);
+if ($main_types) {
+    $stmt->bind_param($main_types, ...$main_params);
 }
 $stmt->execute();
 $result = $stmt->get_result();
@@ -320,6 +324,8 @@ function displayComments($fileId, $conn) {
                         </ul>
                     </nav>
                 <?php endif; ?>
+            <?php else: ?>
+                <div class="alert alert-info">No files found matching your criteria.</div>
             <?php endif; ?>
         </div>
     </div>
