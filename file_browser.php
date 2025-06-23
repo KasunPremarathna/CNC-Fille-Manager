@@ -53,6 +53,10 @@ if (!$show_all) {
 
 // Count total records
 $stmt = $conn->prepare($count_sql);
+if (!$stmt) {
+    error_log("Prepare failed for count query: " . $conn->error);
+    die("Error in count query: " . htmlspecialchars($conn->error));
+}
 if ($search_types) {
     $stmt->bind_param($search_types, $search_params[0], $search_params[1], $search_params[2]);
 }
@@ -73,10 +77,14 @@ $total_pages = $show_all ? 1 : ceil($total_records / $limit);
 
 // Get files
 $stmt = $conn->prepare($sql);
+if (!$stmt) {
+    error_log("Prepare failed for main query: " . $conn->error);
+    die("Error in main query: " . htmlspecialchars($conn->error));
+}
 if ($main_types) {
     if ($main_types === 'sssii') {
         $stmt->bind_param($main_types, $main_params[0], $main_params[1], $main_params[2], $main_params[3], $main_params[4]);
-    } else {
+    } elseif ($main_types === 'sss') {
         $stmt->bind_param($main_types, $main_params[0], $main_params[1], $main_params[2]);
     }
 }
@@ -250,54 +258,56 @@ function displayComments($fileId, $conn) {
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div class="table-responsive scrollable-table-container">
-                                <table class="table table-striped table-hover">
-                                    <thead class="table-dark">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
                                         <tr>
                                             <th>Filename</th>
                                             <th class="d-none d-md-table-cell">Description</th>
                                             <th class="d-none d-md-table-cell">Uploader</th>
-                                            <th class="d-none d-md-table-cell">Revision</th>
-                                            <th class="d-none d-md-table-cell">Uploaded On</th>
+                                            <th class="d-none d-table-cell">Revision</th>
+                                            <th class="d-none d-table-cell">Uploaded On</th>
                                             <th>Comments</th>
                                             <th>Status</th>
-                                            <th>Actions</th>
+                                            <th class="nobreak">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($files as $file) { ?>
+                                        <?php foreach ($files as $row) { ?>
                                             <tr>
-                                                <td>
-                                                    <i class="bi bi-file-earmark"></i> <?php echo htmlspecialchars($file['filename']); ?>
+                                                <td class="text-nowrap">
+                                                    <i class="bi bi-file-earmark"></i> <?php echo htmlspecialchars($row['filename']); ?>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['description']); ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($row['description']); ?></td>
                                                 <td class="d-none d-md-table-cell">
-                                                    <span class="badge bg-<?php echo $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info'); ?>"><?php echo htmlspecialchars($file['username']); ?></span>
+                                                    <span class="badge bg-<?php echo ($row['role'] == 'admin' ? 'danger' : ($row['role'] == 'engineer' ? 'warning' : 'info')); ?>"><?php echo htmlspecialchars($row['username']); ?></span>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['revision_number']); ?></td>
-                                                <td class="d-none d-md-table-cell"><?php echo date('Y-m-d H:i', strtotime($file['created_at'])); ?></td>
+                                                <td class="d-none d-table-cell"><?php echo htmlspecialchars($row['revision_number']); ?></td>
+                                                <td class="text-nowrap d-none d-table-cell"><?php echo date('Y-m-d H:i:s', strtotime($row['created_at'])); ?></td>
                                                 <td>
-                                                    <?php displayComments($file['id'], $conn); ?>
+                                                    <?php displayComments($row['id'], $conn); ?>
+                                                    <div class="mt-2">
+                                                        <button class="btn btn-success btn-sm" onclick="showAddCommentForm(<?php echo $row['id']; ?>)">
+                                                            <i class="bi bi-plus"></i> Add
+                                                        </button>
+                                                    </div>
                                                 </td>
                                                 <td>
-                                                    <span class="status-<?php echo $file['status']; ?>">
-                                                        <?php echo ucfirst($file['status']); ?>
+                                                    <span class="status-<?php echo $row['status']; ?>">
+                                                        <?php echo ucfirst($row['status']); ?>
                                                     </span>
                                                 </td>
-                                                <td>
+                                                <td class="text-nowrap">
                                                     <div class="btn-group btn-group-sm">
-                                                        <?php if ($file['status'] == 'approved') { ?>
-                                                            <a href="download_file.php?id=<?php echo $file['id']; ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <?php if ($row['status'] == 'approved') { ?>
+                                                            <a href="download_file.php?id=<?php echo $row['id']; ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
                                                         <?php } ?>
-                                                        <button class="btn btn-success" onclick="showAddCommentForm(<?php echo $file['id']; ?>)">
-                                                            <i class="bi bi-plus"></i> Comment
-                                                        </button>
                                                         <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer') { ?>
-                                                            <button class="btn btn-danger" onclick="confirmDelete(<?php echo $file['id']; ?>)" title="Delete"><i class="bi bi-trash"></i></button>
+                                                            <button class="btn btn-danger" onclick="confirmDelete(<?php echo $row['id']; ?>)" title="Delete"><i class="bi bi-trash"></i></button>
                                                         <?php } ?>
                                                         <?php if ($role == 'admin' || $role == 'engineer') { ?>
-                                                            <?php if ($file['status'] == 'pending') { ?>
-                                                                <a href="approve_file.php?id=<?php echo $file['id']; ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
+                                                            <?php if ($row['status'] == 'pending') { ?>
+                                                                <a href="approve_file.php?id=<?php echo $row['id']; ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
                                                             <?php } ?>
                                                         <?php } ?>
                                                     </div>
