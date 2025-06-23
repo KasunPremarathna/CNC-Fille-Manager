@@ -17,43 +17,69 @@ $role = $_SESSION['role'];
 
 // Pagination or Show All
 $limit = 10;
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
 // Show all flag
-$show_all = isset($_GET['show_all']) ? true : false;
+$show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
 
 // Search and Filter
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = "%$search%";
 
-// Base query
+// Base query with prepared statements
 $sql = "SELECT files.*, users.username, users.role FROM files JOIN users ON files.uploaded_by = users.id";
+$count_sql = "SELECT COUNT(*) AS total FROM files JOIN users ON files.uploaded_by = users.id";
+$params = [];
+$types = '';
 
 if (!empty($search)) {
-    $sql .= " WHERE (files.filename LIKE '%$search%' OR files.drawing_number LIKE '%$search%' OR files.description LIKE '%$search%')";
+    $sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $count_sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $params = [$search_param, $search_param, $search_param];
+    $types = 'sss';
 }
 
 if (!$show_all) {
-    $sql .= " ORDER BY files.created_at DESC LIMIT $limit OFFSET $offset";
+    $sql .= " ORDER BY files.created_at DESC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+    $types .= 'ii';
 }
 
 // Count total records
-$count_sql = str_replace('files.*, users.username, users.role', 'COUNT(*) AS total', $sql);
-$count_result = $conn->query($count_sql);
-
-if ($count_result === false) {
-    die("Error in count query: " . $conn->error);
+$stmt = $conn->prepare($count_sql);
+if ($types) {
+    $stmt->bind_param($types, ...array_slice($params, 0, count($params) - ($show_all ? 0 : 2)));
 }
+$stmt->execute();
+$count_result = $stmt->get_result();
+$total_records = 0;
 
-$total_records = $count_result->fetch_assoc()['total'];
-$total_pages = ceil($total_records / $limit);
+if ($count_result) {
+    $count_row = $count_result->fetch_assoc();
+    $total_records = $count_row ? (int)$count_row['total'] : 0;
+} else {
+    error_log("Count query failed: " . $conn->error);
+    die("Error in count query: " . htmlspecialchars($conn->error));
+}
+$stmt->close();
+
+$total_pages = $show_all ? 1 : ceil($total_records / $limit);
 
 // Get files
-$result = $conn->query($sql);
-
-if ($result === false) {
-    die("Error in main query: " . $conn->error);
+$stmt = $conn->prepare($sql);
+if ($types) {
+    $stmt->bind_param($types, ...$params);
 }
+$stmt->execute();
+$result = $stmt->get_result();
+
+if (!$result) {
+    error_log("Main query failed: " . $conn->error);
+    die("Error in main query: " . htmlspecialchars($conn->error));
+}
+$stmt->close();
 
 // Function to get comment count
 function getCommentCount($fileId, $conn) {
