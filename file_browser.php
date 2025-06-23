@@ -17,43 +17,73 @@ $role = $_SESSION['role'];
 
 // Pagination or Show All
 $limit = 10;
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
 // Show all flag
-$show_all = isset($_GET['show_all']) ? true : false;
+$show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
 
 // Search and Filter
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = "%$search%";
 
-// Base query
+// Base queries
 $sql = "SELECT files.*, users.username, users.role FROM files JOIN users ON files.uploaded_by = users.id";
+$count_sql = "SELECT COUNT(*) AS total FROM files JOIN users ON files.uploaded_by = users.id";
 
+// Parameters and types for search
+$search_params = [];
+$search_types = '';
 if (!empty($search)) {
-    $sql .= " WHERE (files.filename LIKE '%$search%' OR files.drawing_number LIKE '%$search%' OR files.description LIKE '%$search%')";
+    $sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $count_sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $search_params = [$search_param, $search_param, $search_param];
+    $search_types = 'sss';
 }
 
+// Add pagination to main query
+$main_params = $search_params;
+$main_types = $search_types;
 if (!$show_all) {
-    $sql .= " ORDER BY files.created_at DESC LIMIT $limit OFFSET $offset";
+    $sql .= " ORDER BY files.created_at DESC LIMIT ? OFFSET ?";
+    $main_params[] = $limit;
+    $main_params[] = $offset;
+    $main_types .= 'ii';
 }
 
 // Count total records
-$count_sql = str_replace('files.*, users.username, users.role', 'COUNT(*) AS total', $sql);
-$count_result = $conn->query($count_sql);
-
-if ($count_result === false) {
-    die("Error in count query: " . $conn->error);
+$stmt = $conn->prepare($count_sql);
+if ($search_types) {
+    $stmt->bind_param($search_types, ...$search_params);
 }
+$stmt->execute();
+$count_result = $stmt->get_result();
+$total_records = 0;
 
-$total_records = $count_result->fetch_assoc()['total'];
-$total_pages = ceil($total_records / $limit);
+if ($count_result) {
+    $count_row = $count_result->fetch_assoc();
+    $total_records = $count_row ? (int)$count_row['total'] : 0;
+} else {
+    error_log("Count query failed: " . $conn->error);
+    die("Error in count query: " . htmlspecialchars($conn->error));
+}
+$stmt->close();
+
+$total_pages = $show_all ? 1 : ceil($total_records / $limit);
 
 // Get files
-$result = $conn->query($sql);
-
-if ($result === false) {
-    die("Error in main query: " . $conn->error);
+$stmt = $conn->prepare($sql);
+if ($main_types) {
+    $stmt->bind_param($main_types, ...$main_params);
 }
+$stmt->execute();
+$result = $stmt->get_result();
+
+if (!$result) {
+    error_log("Main query failed: " . $conn->error);
+    die("Error in main query: " . htmlspecialchars($conn->error));
+}
+$stmt->close();
 
 // Function to get comment count
 function getCommentCount($fileId, $conn) {
@@ -101,6 +131,7 @@ function displayComments($fileId, $conn) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="css/styles.css">
     <style>
         body { font-family: 'Arial', sans-serif; background-color: #f4f7fa; }
         .container-fluid { padding-left: 0; padding-right: 0; }
@@ -251,7 +282,7 @@ function displayComments($fileId, $conn) {
                                                 </td>
                                                 <td>
                                                     <div class="btn-group btn-group-sm">
-                                                        <?php if ($file['status'] == 'approved' || in_array($role, ['admin', 'engineer', 'programmer'])): ?>
+                                                        <?php if ($file['status'] == 'approved'): ?>
                                                             <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
                                                         <?php endif; ?>
                                                         <button class="btn btn-success" onclick="showAddCommentForm(<?= $file['id'] ?>)">
@@ -293,6 +324,8 @@ function displayComments($fileId, $conn) {
                         </ul>
                     </nav>
                 <?php endif; ?>
+            <?php else: ?>
+                <div class="alert alert-info">No files found matching your criteria.</div>
             <?php endif; ?>
         </div>
     </div>
@@ -306,8 +339,8 @@ function displayComments($fileId, $conn) {
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="file-id">
-                    <textarea id="new-comment" class="form-control" rows="3" placeholder="Enter your comment here..."></textarea>
-                    <button type="button" class="btn btn-primary mt-2" onclick="submitComment()">Submit Comment</button>
+                    <textarea id="new-comment" class="form-control" rows="3" placeholder="Write your comment here..."></textarea>
+                    <button type="button" class="btn btn-primary mt-2" onclick="submitComment()">Submit</button>
                 </div>
             </div>
         </div>
@@ -337,14 +370,22 @@ function displayComments($fileId, $conn) {
             xhr.open("POST", "submit_comment.php", true);
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Comment Added',
-                        text: 'Comment added successfully',
-                    }).then(() => {
-                        window.location.reload();
-                    });
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Comment Added',
+                            text: 'Comment added successfully.',
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to add comment.',
+                        });
+                    }
                 }
             };
 

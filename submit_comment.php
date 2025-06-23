@@ -1,34 +1,59 @@
 <?php
 session_start();
 include 'db.php';
+include 'log_activity.php';
 
-// Ensure the user is logged in
-if (!isset($_SESSION['user_id'])) {
-    die("You must be logged in to submit a comment.");
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+    http_response_code(403);
+    echo "Unauthorized access.";
+    exit();
 }
 
 $user_id = $_SESSION['user_id'];
 
-// Check if the comment and file_id are provided via POST
-if (isset($_POST['comment']) && isset($_POST['file_id'])) {
-    $comment = mysqli_real_escape_string($conn, $_POST['comment']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['comment']) && isset($_POST['file_id'])) {
+    $comment_text = trim($_POST['comment']);
     $file_id = (int)$_POST['file_id'];
 
-    // Check if the comment is not empty
-    if (!empty($comment)) {
-        // Insert the comment into the database
-        $query = "INSERT INTO comments (file_id, user_id, comment_text, created_at) 
-                  VALUES ('$file_id', '$user_id', '$comment', NOW())";
-
-        if ($conn->query($query) === TRUE) {
-            echo "Comment added successfully.";
-        } else {
-            echo "Error: " . $conn->error;
-        }
-    } else {
-        echo "Please enter a comment.";
+    if (empty($comment_text)) {
+        http_response_code(400);
+        echo "Comment cannot be empty.";
+        exit();
     }
+
+    // Verify file exists
+    $stmt = $conn->prepare("SELECT filename FROM files WHERE id = ?");
+    $stmt->bind_param("i", $file_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows === 0) {
+        $stmt->close();
+        http_response_code(404);
+        echo "File not found.";
+        exit();
+    }
+    $file = $result->fetch_assoc();
+    $filename = $file['filename'];
+    $stmt->close();
+
+    // Insert comment
+    $stmt = $conn->prepare("INSERT INTO comments (file_id, user_id, comment_text) VALUES (?, ?, ?)");
+    $stmt->bind_param("iis", $file_id, $user_id, $comment_text);
+    if ($stmt->execute()) {
+        // Log the comment action
+        logActivity($user_id, 'comment', "Added comment to file ID: $file_id ($filename)");
+        http_response_code(200);
+        echo "Comment added successfully.";
+    } else {
+        error_log("Comment insert failed: " . $conn->error);
+        http_response_code(500);
+        echo "Failed to add comment.";
+    }
+    $stmt->close();
 } else {
-    echo "Invalid request. File ID or comment missing.";
+    http_response_code(400);
+    echo "Invalid request.";
 }
+
+$conn->close();
 ?>
