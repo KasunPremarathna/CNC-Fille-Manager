@@ -54,7 +54,7 @@ if (!$show_all) {
 // Count total records
 $stmt = $conn->prepare($count_sql);
 if ($search_types) {
-    $stmt->bind_param($search_types, ...$search_params);
+    $stmt->bind_param($search_types, $search_params[0], $search_params[1], $search_params[2]);
 }
 $stmt->execute();
 $count_result = $stmt->get_result();
@@ -74,7 +74,11 @@ $total_pages = $show_all ? 1 : ceil($total_records / $limit);
 // Get files
 $stmt = $conn->prepare($sql);
 if ($main_types) {
-    $stmt->bind_param($main_types, ...$main_params);
+    if ($main_types === 'sssii') {
+        $stmt->bind_param($main_types, $main_params[0], $main_params[1], $main_params[2], $main_params[3], $main_params[4]);
+    } else {
+        $stmt->bind_param($main_types, $main_params[0], $main_params[1], $main_params[2]);
+    }
 }
 $stmt->execute();
 $result = $stmt->get_result();
@@ -181,7 +185,7 @@ function displayComments($fileId, $conn) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <span class="nav-link">Welcome, <?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></span>
+                        <span class="nav-link">Welcome, <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?></span>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="upload.php"><i class="bi bi-upload"></i> Upload File</a>
@@ -201,18 +205,18 @@ function displayComments($fileId, $conn) {
         <div class="content-wrapper">
             <h2 class="mb-4"><i class="bi bi-folder2-open"></i> File Browser</h2>
 
-            <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
+            <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer') { ?>
                 <a href="upload.php" class="btn btn-primary mb-3">
                     <i class="bi bi-upload"></i> Upload File
                 </a>
-            <?php endif; ?>
+            <?php } ?>
 
             <form method="GET" class="mb-4">
                 <div class="row g-2">
                     <div class="col-md-8 col-12">
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" name="search" class="form-control" placeholder="Search by Filename, Drawing Number, or Description" value="<?= htmlspecialchars($search) ?>">
+                            <input type="text" name="search" class="form-control" placeholder="Search by Filename, Drawing Number, or Description" value="<?php echo htmlspecialchars($search); ?>">
                         </div>
                     </div>
                     <div class="col-md-2 col-6">
@@ -228,21 +232,21 @@ function displayComments($fileId, $conn) {
                 <button type="submit" name="show_all" value="1" class="btn btn-warning w-100"><i class="bi bi-eye"></i> Show All Files</button>
             </form>
 
-            <?php if ($result->num_rows === 0): ?>
+            <?php if ($result->num_rows === 0) { ?>
                 <div class="alert alert-info">No files found matching your criteria.</div>
-            <?php else: ?>
+            <?php } else { ?>
                 <?php
                 $files_by_drawing = [];
                 while ($row = $result->fetch_assoc()) {
                     $files_by_drawing[$row['drawing_number']][] = $row;
                 }
 
-                foreach ($files_by_drawing as $drawing_number => $files): ?>
+                foreach ($files_by_drawing as $drawing_number => $files) { ?>
                     <div class="card mb-4">
                         <div class="card-header bg-light">
                             <h5 class="mb-0">
-                                <i class="bi bi-drawing-pin"></i> Drawing: <?= htmlspecialchars($drawing_number) ?>
-                                <span class="badge bg-primary float-end"><?= count($files) ?> files</span>
+                                <i class="bi bi-drawing-pin"></i> Drawing: <?php echo htmlspecialchars($drawing_number); ?>
+                                <span class="badge bg-primary float-end"><?php echo count($files); ?> files</span>
                             </h5>
                         </div>
                         <div class="card-body">
@@ -261,72 +265,70 @@ function displayComments($fileId, $conn) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($files as $file): ?>
+                                        <?php foreach ($files as $file) { ?>
                                             <tr>
                                                 <td>
-                                                    <i class="bi bi-file-earmark"></i> <?= htmlspecialchars($file['filename']) ?>
+                                                    <i class="bi bi-file-earmark"></i> <?php echo htmlspecialchars($file['filename']); ?>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['description']) ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['description']); ?></td>
                                                 <td class="d-none d-md-table-cell">
-                                                    <span class="badge bg-<?= $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info') ?>"><?= htmlspecialchars($file['username']) ?></span>
+                                                    <span class="badge bg-<?php echo $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info'); ?>"><?php echo htmlspecialchars($file['username']); ?></span>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['revision_number']) ?></td>
-                                                <td class="d-none d-md-table-cell"><?= date('Y-m-d H:i', strtotime($file['created_at'])) ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['revision_number']); ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo date('Y-m-d H:i', strtotime($file['created_at'])); ?></td>
                                                 <td>
                                                     <?php displayComments($file['id'], $conn); ?>
                                                 </td>
                                                 <td>
-                                                    <span class="status-<?= $file['status'] ?>">
-                                                        <?= ucfirst($file['status']) ?>
+                                                    <span class="status-<?php echo $file['status']; ?>">
+                                                        <?php echo ucfirst($file['status']); ?>
                                                     </span>
                                                 </td>
                                                 <td>
                                                     <div class="btn-group btn-group-sm">
-                                                        <?php if ($file['status'] == 'approved'): ?>
-                                                            <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
-                                                        <?php endif; ?>
-                                                        <button class="btn btn-success" onclick="showAddCommentForm(<?= $file['id'] ?>)">
+                                                        <?php if ($file['status'] == 'approved') { ?>
+                                                            <a href="download_file.php?id=<?php echo $file['id']; ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <?php } ?>
+                                                        <button class="btn btn-success" onclick="showAddCommentForm(<?php echo $file['id']; ?>)">
                                                             <i class="bi bi-plus"></i> Comment
                                                         </button>
-                                                        <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
-                                                            <button class="btn btn-danger" onclick="confirmDelete(<?= $file['id'] ?>)" title="Delete"><i class="bi bi-trash"></i></button>
-                                                        <?php endif; ?>
-                                                        <?php if ($role == 'admin' || $role == 'engineer'): ?>
-                                                            <?php if ($file['status'] == 'pending'): ?>
-                                                                <a href="approve_file.php?id=<?= $file['id'] ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
-                                                            <?php endif; ?>
-                                                        <?php endif; ?>
+                                                        <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer') { ?>
+                                                            <button class="btn btn-danger" onclick="confirmDelete(<?php echo $file['id']; ?>)" title="Delete"><i class="bi bi-trash"></i></button>
+                                                        <?php } ?>
+                                                        <?php if ($role == 'admin' || $role == 'engineer') { ?>
+                                                            <?php if ($file['status'] == 'pending') { ?>
+                                                                <a href="approve_file.php?id=<?php echo $file['id']; ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
+                                                            <?php } ?>
+                                                        <?php } ?>
                                                     </div>
                                                 </td>
                                             </tr>
-                                        <?php endforeach; ?>
+                                        <?php } ?>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                <?php } ?>
 
-                <?php if (!$show_all && $total_pages > 1): ?>
+                <?php if (!$show_all && $total_pages > 1) { ?>
                     <nav aria-label="Page navigation">
                         <ul class="pagination justify-content-center">
-                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>">Previous</a>
+                            <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+                                <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>">Previous</a>
                             </li>
-                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                            <?php for ($i = 1; $i <= $total_pages; $i++) { ?>
+                                <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>"><?php echo $i; ?></a>
                                 </li>
-                            <?php endfor; ?>
-                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>">Next</a>
+                            <?php } ?>
+                            <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
+                                <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>">Next</a>
                             </li>
                         </ul>
                     </nav>
-                <?php endif; ?>
-            <?php else: ?>
-                <div class="alert alert-info">No files found matching your criteria.</div>
-            <?php endif; ?>
+                <?php } ?>
+            <?php } ?>
         </div>
     </div>
 
@@ -371,20 +373,30 @@ function displayComments($fileId, $conn) {
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Comment Added',
-                            text: 'Comment added successfully.',
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    } else {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (xhr.status === 200 && response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Comment Added',
+                                text: response.success,
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.error || 'Failed to add comment.',
+                            });
+                        }
+                    } catch (e) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Error',
-                            text: 'Failed to add comment.',
+                            text: 'Invalid server response.',
                         });
+                        console.error('Response:', xhr.responseText);
                     }
                 }
             };
