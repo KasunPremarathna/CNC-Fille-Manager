@@ -24,35 +24,65 @@ $offset = ($page - 1) * $limit;
 $show_all = isset($_GET['show_all']) ? true : false;
 
 // Search and Filter
-$search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$search_param = "%$search%";
 
-// Base query
+// Base query with prepared statement
 $sql = "SELECT files.*, users.username, users.role FROM files JOIN users ON files.uploaded_by = users.id";
+$count_sql = "SELECT COUNT(*) AS total FROM files JOIN users ON files.uploaded_by = users.id";
+$params = [];
+$types = '';
 
 if (!empty($search)) {
-    $sql .= " WHERE (files.filename LIKE '%$search%' OR files.drawing_number LIKE '%$search%' OR files.description LIKE '%$search%')";
+    $sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $count_sql .= " WHERE (files.filename LIKE ? OR files.drawing_number LIKE ? OR files.description LIKE ?)";
+    $params = [$search_param, $search_param, $search_param];
+    $types = 'sss';
 }
 
 if (!$show_all) {
-    $sql .= " ORDER BY files.created_at DESC LIMIT $limit OFFSET $offset";
+    $sql .= " ORDER BY files.created_at DESC LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+    $types .= 'ii';
 }
 
 // Count total records
-$count_sql = str_replace('files.*, users.username, users.role', 'COUNT(*) AS total', $sql);
-$count_result = $conn->query($count_sql);
+$stmt = $conn->prepare($count_sql);
+if (!$stmt) {
+    error_log("Prepare failed for count query: " . $conn->error);
+    die("An error occurred while fetching files. Please try again later.");
+}
+if ($types) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$count_result = $stmt->get_result();
 
 if ($count_result === false) {
-    die("Error in count query: " . $conn->error);
+    error_log("Count query failed: " . $conn->error);
+    die("An error occurred while fetching files. Please try again later.");
 }
 
 $total_records = $count_result->fetch_assoc()['total'];
 $total_pages = ceil($total_records / $limit);
+$stmt->close();
 
 // Get files
-$result = $conn->query($sql);
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    error_log("Prepare failed for main query: " . $conn->error);
+    die("An error occurred while fetching files. Please try again later.");
+}
+if ($types) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$result = $stmt->get_result();
 
 if ($result === false) {
-    die("Error in main query: " . $conn->error);
+    error_log("Main query failed: " . $conn->error);
+    die("An error occurred while fetching files. Please try again later.");
 }
 
 // Function to get comment count
@@ -150,7 +180,7 @@ function displayComments($fileId, $conn) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <span class="nav-link">Welcome, <?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></span>
+                        <span class="nav-link">Welcome, <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?></span>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="upload.php"><i class="bi bi-upload"></i> Upload File</a>
@@ -181,7 +211,7 @@ function displayComments($fileId, $conn) {
                     <div class="col-md-8 col-12">
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
-                            <input type="text" name="search" class="form-control" placeholder="Search by Filename, Drawing Number, or Description" value="<?= htmlspecialchars($search) ?>">
+                            <input type="text" name="search" class="form-control" placeholder="Search by Filename, Drawing Number, or Description" value="<?php echo htmlspecialchars($search); ?>">
                         </div>
                     </div>
                     <div class="col-md-2 col-6">
@@ -210,8 +240,8 @@ function displayComments($fileId, $conn) {
                     <div class="card mb-4">
                         <div class="card-header bg-light">
                             <h5 class="mb-0">
-                                <i class="bi bi-drawing-pin"></i> Drawing: <?= htmlspecialchars($drawing_number) ?>
-                                <span class="badge bg-primary float-end"><?= count($files) ?> files</span>
+                                <i class="bi bi-drawing-pin"></i> Drawing: <?php echo htmlspecialchars($drawing_number); ?>
+                                <span class="badge bg-primary float-end"><?php echo count($files); ?> files</span>
                             </h5>
                         </div>
                         <div class="card-body">
@@ -233,36 +263,36 @@ function displayComments($fileId, $conn) {
                                         <?php foreach ($files as $file): ?>
                                             <tr>
                                                 <td>
-                                                    <i class="bi bi-file-earmark"></i> <?= htmlspecialchars($file['filename']) ?>
+                                                    <i class="bi bi-file-earmark"></i> <?php echo htmlspecialchars($file['filename']); ?>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['description']) ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['description']); ?></td>
                                                 <td class="d-none d-md-table-cell">
-                                                    <span class="badge bg-<?= $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info') ?>"><?= htmlspecialchars($file['username']) ?></span>
+                                                    <span class="badge bg-<?php echo $file['role'] == 'admin' ? 'danger' : ($file['role'] == 'engineer' ? 'warning' : 'info'); ?>"><?php echo htmlspecialchars($file['username']); ?></span>
                                                 </td>
-                                                <td class="d-none d-md-table-cell"><?= htmlspecialchars($file['revision_number']) ?></td>
-                                                <td class="d-none d-md-table-cell"><?= date('Y-m-d H:i', strtotime($file['created_at'])) ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($file['revision_number']); ?></td>
+                                                <td class="d-none d-md-table-cell"><?php echo date('Y-m-d H:i', strtotime($file['created_at'])); ?></td>
                                                 <td>
                                                     <?php displayComments($file['id'], $conn); ?>
+                                                    <button class="btn btn-success btn-sm mt-2" onclick="showAddCommentForm(<?php echo $file['id']; ?>)">
+                                                        <i class="bi bi-plus"></i> Add Comment
+                                                    </button>
                                                 </td>
                                                 <td>
-                                                    <span class="status-<?= $file['status'] ?>">
-                                                        <?= ucfirst($file['status']) ?>
+                                                    <span class="status-<?php echo $file['status']; ?>">
+                                                        <?php echo ucfirst($file['status']); ?>
                                                     </span>
                                                 </td>
                                                 <td>
                                                     <div class="btn-group btn-group-sm">
-                                                        <?php if ($file['status'] == 'approved' || in_array($role, ['admin', 'engineer', 'programmer'])): ?>
-                                                            <a href="download_file.php?id=<?= $file['id'] ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
+                                                        <?php if ($file['status'] == 'approved'): ?>
+                                                            <a href="download_file.php?id=<?php echo $file['id']; ?>" class="btn btn-primary" title="Download"><i class="bi bi-download"></i></a>
                                                         <?php endif; ?>
-                                                        <button class="btn btn-success" onclick="showAddCommentForm(<?= $file['id'] ?>)">
-                                                            <i class="bi bi-plus"></i> Comment
-                                                        </button>
                                                         <?php if ($role == 'admin' || $role == 'engineer' || $role == 'programmer'): ?>
-                                                            <button class="btn btn-danger" onclick="confirmDelete(<?= $file['id'] ?>)" title="Delete"><i class="bi bi-trash"></i></button>
+                                                            <button class="btn btn-danger" onclick="confirmDelete(<?php echo $file['id']; ?>)" title="Delete"><i class="bi bi-trash"></i></button>
                                                         <?php endif; ?>
                                                         <?php if ($role == 'admin' || $role == 'engineer'): ?>
                                                             <?php if ($file['status'] == 'pending'): ?>
-                                                                <a href="approve_file.php?id=<?= $file['id'] ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
+                                                                <a href="approve_file.php?id=<?php echo $file['id']; ?>" class="btn btn-warning" title="Approve"><i class="bi bi-check-circle"></i></a>
                                                             <?php endif; ?>
                                                         <?php endif; ?>
                                                     </div>
@@ -279,16 +309,16 @@ function displayComments($fileId, $conn) {
                 <?php if (!$show_all && $total_pages > 1): ?>
                     <nav aria-label="Page navigation">
                         <ul class="pagination justify-content-center">
-                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>">Previous</a>
+                            <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
+                                <a class="page-link" href="?page=<?php echo $page - 1; ?>&search=<?php echo urlencode($search); ?>">Previous</a>
                             </li>
                             <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"><?= $i ?></a>
+                                <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                                    <a class="page-link" href="?page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>"><?php echo $i; ?></a>
                                 </li>
                             <?php endfor; ?>
-                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>">Next</a>
+                            <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
+                                <a class="page-link" href="?page=<?php echo $page + 1; ?>&search=<?php echo urlencode($search); ?>">Next</a>
                             </li>
                         </ul>
                     </nav>
@@ -337,14 +367,31 @@ function displayComments($fileId, $conn) {
             xhr.open("POST", "submit_comment.php", true);
             xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Comment Added',
-                        text: 'Comment added successfully',
-                    }).then(() => {
-                        window.location.reload();
-                    });
+                if (xhr.readyState == 4) {
+                    try {
+                        var response = JSON.parse(xhr.responseText);
+                        if (xhr.status == 200 && response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Comment Added',
+                                text: response.success,
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.error || 'Failed to add comment.',
+                            });
+                        }
+                    } catch (e) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Invalid server response.',
+                        });
+                    }
                 }
             };
 
